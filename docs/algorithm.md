@@ -21,7 +21,7 @@ represents the subsequence `(s_{i_1}, s_{i_2}, …, s_{i_k})`. Its
 **leader** is `s_{i_1}`, the smallest element. Its **internal gaps** are
 
 ```
-g_R(j) := s_{i_{j+1}} − s_{i_j},     for 1 ≤ j ≤ k − 1.
+g_R(j) := s_{i_{j}} − s_{i_(j-1)},     for 2 ≤ j ≤ k.
 ```
 
 These are gaps *within the row*, not gaps in `S`. They coincide with the
@@ -40,12 +40,14 @@ Fix a prefix length `N`. Define a sequence of multisets of rows
   `g_R(j) = g` for some `j`, the child row is
 
   ```
-  R_g := (i_{j+1} : 1 ≤ j ≤ k − 1, g_R(j) = g)
+  R_g := (i_j : 2 ≤ j ≤ k, g_R(j) = g)
   ```
 
   i.e. the positions of those elements of `R` (other than the leader) that
   are preceded *within `R`* by gap `g`. The leader `i_1` does not appear in
-  any child. If `k = 1`, `R` has no children.
+  any child — `g_R(1)` is undefined, since `i_1` has no in-row predecessor,
+  so there is no gap value to bucket it under. If `k = 1`, `R` has no
+  children.
 
 The recursion terminates: each row of length `k` produces children whose
 total length is `k − 1`, so the total length across all rows at level `ℓ`
@@ -140,9 +142,9 @@ function compute_m(S):
         if length(row) = 1: continue
 
         buckets := empty map gap_value → list of positions, keyed sorted ascending
-        for j in 1 .. length(row) − 1:
-            g := S[row[j]] − S[row[j−1]]         # internal gap in the row
-            buckets[g].append(row[j])
+        for j in 1 .. length(row) − 1:           # 0-indexed; corresponds to math index j' = j+1, 2..k
+            g := S[row[j]] − S[row[j−1]]         # in-row gap g_R(j') = s_{i_{j'}} − s_{i_{j'-1}}
+            buckets[g].append(row[j])            # bucket the destination i_{j'} of that gap
 
         for each (g, bucket) in buckets:
             queue.push((level + 1, bucket))
@@ -185,8 +187,8 @@ array (`u64 × 10⁸ ≈ 800 MB`) plus the `Vec<usize>` row arrays.
 ## 7. Generalization beyond primes
 
 The construction depends on `S` only through the partial order and the
-gaps `s_{j+1} − s_j`. Any strictly increasing sequence of positive
-integers is a valid input. The implementation accepts arbitrary input
+gaps `s_j − s_{j-1}` (for `j ≥ 2`). Any strictly increasing sequence of
+positive integers is a valid input. The implementation accepts arbitrary input
 sequences via `--seed-set FILE` ([main.rs:1017](../src/main.rs#L1017)),
 so the depth construction can be applied to:
 

@@ -3,7 +3,14 @@ use std::collections::BTreeMap;
 /// Compute m(p) for each number in the input array.
 ///
 /// m(p) is the "depth" — the number of recursive gap-regrouping iterations
-/// before p becomes the leader (smallest element) of its group.
+/// before p becomes the leader (smallest element) of its group. See
+/// `docs/algorithm.md` for the formal construction.
+///
+/// Index convention: the formal definition uses 1-indexed rows with
+/// destination-indexed gaps `g_R(j) := s_{i_j} − s_{i_{j-1}}` for `2 ≤ j ≤ k`,
+/// and `i_j` (the destination) is what gets bucketed. The loop below uses a
+/// 0-indexed Rust range `1..row.len()`, which is the same iteration: index
+/// `i` here corresponds to math index `j = i+1`, and `row[i]` is `i_j`.
 ///
 /// Returns a Vec<u32> of the same length as `numbers`, where each entry is
 /// the m-value (depth level) for that number.
