@@ -68,6 +68,20 @@ enum Command {
     },
     /// Pi-chain depth measurement layer: family counts, first appearances, C(m,k), ratios
     PiChain,
+    /// Print the rows at each iteration level for a given set of numbers
+    Iterations {
+        /// Optional explicit list of strictly-ascending positive integers.
+        /// If omitted, falls back to -n / --seed-set.
+        #[arg(value_name = "NUMBER")]
+        numbers: Vec<u64>,
+    },
+    /// Write a CSV of each number's gap-path address (gap selected at each iteration)
+    GapAddress {
+        /// Optional explicit list of strictly-ascending positive integers.
+        /// If omitted, falls back to -n / --seed-set.
+        #[arg(value_name = "NUMBER")]
+        numbers: Vec<u64>,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -135,6 +149,28 @@ fn main() {
         }
         Some(Command::PiChain) => {
             cmd_pi_chain(n, outdir);
+        }
+        Some(Command::Iterations { numbers }) => {
+            let nums = if numbers.is_empty() {
+                load_numbers(n, seed)
+            } else {
+                let mut v = numbers.clone();
+                v.sort_unstable();
+                v.dedup();
+                v
+            };
+            cmd_iterations(&nums, outdir);
+        }
+        Some(Command::GapAddress { numbers }) => {
+            let nums = if numbers.is_empty() {
+                load_numbers(n, seed)
+            } else {
+                let mut v = numbers.clone();
+                v.sort_unstable();
+                v.dedup();
+                v
+            };
+            cmd_gap_address(&nums, outdir);
         }
     }
 }

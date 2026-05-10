@@ -1,6 +1,6 @@
 # Prime Gap Depth — working notes
 
-Last updated: 2026-05-08
+Last updated: 2026-05-10
 
 ## Where this came from
 
@@ -168,6 +168,76 @@ The chi-squared p-values are all reported as 0 — that's the large-N statistica
 significance pathology, not effect size. What matters is the absolute deviation
 from 12.5%.
 
+## Connections to classical prime constellations
+
+An OEIS reviewer asked whether the iteration-2 construction is "just the prime
+quadruples." It isn't — but the question turns out to be sharper than it looks,
+and the answer reveals a clean correspondence worth recording.
+
+### One specific level-2 row equals A007530 + 8
+
+At level 2, the row indexed by `(predecessor-gap = 2, within-row gap = 6)` is
+exactly the set of largest elements of prime quadruples. That is,
+
+```
+{ q ∈ row (2, 6) at level 2 } = { p + 8 : (p, p+2, p+6, p+8) is a prime quadruple } = A007530 + 8.
+```
+
+The row begins `[13, 19, 109, 199, 829, 1489, 1879, 2089, …]`, which is OEIS
+A007530 = `[5, 11, 101, 191, 821, 1481, 1871, 2081, …]` shifted by 8.
+
+*Proof sketch.* In any prime quadruple `(p, p+2, p+6, p+8)` with `p > 3`, `p+4`
+is divisible by 3 (since `p` and `p+2` cover the two nonzero residues mod 3,
+forcing `p+4 ≡ 0 mod 3`). So `p+4` is composite, which means `p+2` and `p+8`
+are *consecutive* in the level-1 gap-2 row (no other prime between them has
+predecessor-gap 2). Their within-row gap is `(p+8) − (p+2) = 6`. The converse
+runs the same argument backwards: any element `q` of the level-2 `(2, 6)` row
+forces `(q−8, q−6, q−2, q)` to be a prime quadruple.
+
+### Iteration 2 is broader than this single row
+
+The reviewer's question generalises to "is *iteration 2* the prime quadruples?"
+— and the answer is no, because iteration 2 produces many rows, of which
+`(2, 6)` is one. Other early rows at level 2:
+
+| `(g, h)` | First few elements | Connection to a constellation? |
+| --- | --- | --- |
+| `(2, 2)` | `[7]` | trivial singleton |
+| `(2, 6)` | `[13, 19, 109, 199, 829, …]` | **A007530 + 8 (prime quadruples)** |
+| `(2, 12)` | `[31, 43, 73, 313, …]` | not a known constellation I've identified |
+| `(4, 6)` | `[17, 23, 47, 53, …]` | not a known constellation I've identified |
+| `(4, 18)` | `[41, 191, …]` | not identified |
+
+So 31 is at iteration 2 but is not in any prime quadruple, which kills the
+"iteration 2 = quadruples" reading.
+
+### What this opens up
+
+The interesting follow-up: **which level-2 (and level-3+) rows correspond to
+known prime k-tuple constellations, and which are genuinely new?**
+
+A prime k-tuple constellation is a fixed admissible pattern
+`(0, b_1, b_2, …, b_{k−1})` that primes can simultaneously fit. Each
+constellation imposes a specific gap-pattern on consecutive primes that fit it.
+Conjecturally, the iterated-gap construction's rows at sufficient depth should
+encode all admissible constellations, with deeper rows encoding longer
+patterns. Some plausible identifications to check:
+
+- `(2, 6)` ≅ A007530 + 8 (prime quadruples) ✓ proved above.
+- `(4, 6)` and `(4, 18)` involve sequences of primes preceded by gap 4 with
+  specific within-row spacings — likely correspond to admissible 4- or 5-tuple
+  patterns starting with a gap of 4. I haven't identified them.
+- Level-3 rows would correspond to longer constellations (5- or 6-tuples).
+  The first few `m = 3` primes (19, 23, 43, 47, 67, 73, …) are the leaders of
+  level-3 rows; checking which OEIS k-tuple sequences contain these would be a
+  cheap next step.
+
+This is the cleanest "structure" result the construction has produced so far:
+the row-coordinate `(g_1, g_2, …, g_m)` is **not arbitrary** — it encodes
+constellation-membership in at least some cases. If this generalises, the
+gap-path address discussed in [§"Where the periodic-table dream stands"](#where-the-periodic-table-dream-stands)
+might literally be a coordinate system on the prime constellations.
+
 ## Where the periodic-table dream stands
 
 Still open — but the shape it would take is different from what I first
@@ -287,3 +357,9 @@ The CLI subcommands map directly to the questions above:
 - Identify A-numbers for the m-class b-files in `out/` and check whether any
   are already in OEIS. The m=1 class is A000101; the m=2 class onward I
   haven't checked.
+- **Identify which level-2 and level-3 rows correspond to known OEIS
+  k-tuple sequences.** The `(g=2, h=6)` row equals A007530 + 8 (see
+  "Connections to classical prime constellations" above); systematically
+  dump each row and search OEIS for the first few elements. Each match is
+  a confirmed constellation/row correspondence; non-matches may be new
+  sequences or admissible patterns whose primes have not been catalogued.

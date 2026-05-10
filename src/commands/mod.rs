@@ -7,6 +7,8 @@ pub mod class_quantiles;
 pub mod overlay;
 pub mod predict;
 pub mod pi_chain;
+pub mod iterations;
+pub mod gap_address;
 
 pub use stability::cmd_stability;
 pub use mod_residue::cmd_mod_residue;
@@ -17,3 +19,5 @@ pub use class_quantiles::cmd_class_quantiles;
 pub use overlay::cmd_overlay;
 pub use predict::cmd_predict;
 pub use pi_chain::cmd_pi_chain;
+pub use iterations::cmd_iterations;
+pub use gap_address::cmd_gap_address;
