@@ -22,15 +22,15 @@ struct Cli {
     command: Option<Command>,
 
     /// Number of primes to use (default 1_000_000)
-    #[arg(short = 'n', long, default_value_t = 1_000_000)]
+    #[arg(short = 'n', long, default_value_t = 1_000_000, global = true)]
     count: usize,
 
     /// Supply your own ascending integers (one per line) instead of primes
-    #[arg(long, value_name = "FILE")]
+    #[arg(long, value_name = "FILE", global = true)]
     seed_set: Option<PathBuf>,
 
     /// Output directory for CSV/TSV files
-    #[arg(short, long, default_value = "out")]
+    #[arg(short, long, default_value = "out", global = true)]
     outdir: PathBuf,
 }
 
