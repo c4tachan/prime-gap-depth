@@ -25,13 +25,23 @@ struct Cli {
     #[arg(short = 'n', long, default_value_t = 1_000_000, global = true)]
     count: usize,
 
-    /// Supply your own ascending integers (one per line) instead of primes
+    /// Supply your own integer sequence (one per line) instead of primes.
+    /// By default the file is sorted+deduped on load (required by the
+    /// empirical/statistical commands). Pass --preserve-order to use the
+    /// file as-is for non-monotone inputs.
     #[arg(long, value_name = "FILE", global = true)]
     seed_set: Option<PathBuf>,
 
     /// Output directory for CSV/TSV files
     #[arg(short, long, default_value = "out", global = true)]
     outdir: PathBuf,
+
+    /// Preserve input ordering (skip sort+dedup). Only meaningful with
+    /// --seed-set; honored by `iterations`, `gap-address`, and the default
+    /// run. The empirical/statistical commands always sort+dedup regardless,
+    /// since their analyses assume a monotone sequence.
+    #[arg(long, global = true)]
+    preserve_order: bool,
 }
 
 #[derive(Subcommand)]
@@ -68,16 +78,20 @@ enum Command {
     },
     /// Pi-chain depth measurement layer: family counts, first appearances, C(m,k), ratios
     PiChain,
-    /// Print the rows at each iteration level for a given set of numbers
+    /// Print the rows at each iteration level for a given set of numbers.
+    /// Positional NUMBERs are used in the order given (no sorting). Non-monotone
+    /// sequences are accepted; in-row gaps become signed integers in that case.
     Iterations {
-        /// Optional explicit list of strictly-ascending positive integers.
+        /// Optional explicit list of integers, used in the order given.
         /// If omitted, falls back to -n / --seed-set.
         #[arg(value_name = "NUMBER")]
         numbers: Vec<u64>,
     },
-    /// Write a CSV of each number's gap-path address (gap selected at each iteration)
+    /// Write a CSV of each number's gap-path address (gap selected at each iteration).
+    /// Positional NUMBERs are used in the order given (no sorting). Non-monotone
+    /// sequences are accepted; gaps become signed integers in that case.
     GapAddress {
-        /// Optional explicit list of strictly-ascending positive integers.
+        /// Optional explicit list of integers, used in the order given.
         /// If omitted, falls back to -n / --seed-set.
         #[arg(value_name = "NUMBER")]
         numbers: Vec<u64>,
@@ -93,11 +107,12 @@ fn main() {
     let n = cli.count;
     let seed = cli.seed_set.as_ref();
     let outdir = &cli.outdir;
+    let preserve_order = cli.preserve_order;
 
     match &cli.command {
         None => {
             eprintln!("Loading {} numbers...", n);
-            let numbers = load_numbers(n, seed);
+            let numbers = load_numbers(n, seed, preserve_order);
             eprintln!("Computing gap-depth m-values...");
             let m_values = compute_m(&numbers);
 
@@ -152,23 +167,17 @@ fn main() {
         }
         Some(Command::Iterations { numbers }) => {
             let nums = if numbers.is_empty() {
-                load_numbers(n, seed)
+                load_numbers(n, seed, preserve_order)
             } else {
-                let mut v = numbers.clone();
-                v.sort_unstable();
-                v.dedup();
-                v
+                numbers.clone()
             };
             cmd_iterations(&nums, outdir);
         }
         Some(Command::GapAddress { numbers }) => {
             let nums = if numbers.is_empty() {
-                load_numbers(n, seed)
+                load_numbers(n, seed, preserve_order)
             } else {
-                let mut v = numbers.clone();
-                v.sort_unstable();
-                v.dedup();
-                v
+                numbers.clone()
             };
             cmd_gap_address(&nums, outdir);
         }

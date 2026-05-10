@@ -6,7 +6,7 @@ use crate::stats::{quadratic_fit, linear_fit};
 
 pub fn cmd_predict(n: usize, seed: Option<&PathBuf>, m_min: u32, m_max: u32) {
     eprintln!("Loading {} numbers...", n);
-    let numbers = load_numbers(n, seed);
+    let numbers = load_numbers(n, seed, false);
     eprintln!("Computing m-values...");
     let m_values = compute_m(&numbers);
 

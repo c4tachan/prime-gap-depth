@@ -9,25 +9,19 @@ use std::path::Path;
 ///
 /// One row per input number. Columns: `index, value, m, g_1, g_2, …, g_M`,
 /// where `M = max m`. Cells beyond a number's leader-level are empty.
+///
+/// Numbers are processed in the order given. For monotone inputs all gaps are
+/// positive; for non-monotone inputs gaps are signed.
 pub fn cmd_gap_address(numbers: &[u64], outdir: &Path) {
     if numbers.is_empty() {
         eprintln!("No numbers to process.");
         return;
     }
-    for w in numbers.windows(2) {
-        if w[0] >= w[1] {
-            eprintln!(
-                "error: input numbers must be strictly ascending (got {} then {})",
-                w[0], w[1]
-            );
-            return;
-        }
-    }
 
     let n = numbers.len();
     eprintln!("Computing gap-path addresses for {} numbers...", n);
 
-    let mut address: Vec<Vec<u64>> = vec![Vec::new(); n];
+    let mut address: Vec<Vec<i64>> = vec![Vec::new(); n];
     let mut m_values: Vec<u32> = vec![0u32; n];
 
     let mut current: Vec<Vec<usize>> = vec![(0..n).collect()];
@@ -40,9 +34,9 @@ pub fn cmd_gap_address(numbers: &[u64], outdir: &Path) {
             if row.len() <= 1 {
                 continue;
             }
-            let mut buckets: BTreeMap<u64, Vec<usize>> = BTreeMap::new();
+            let mut buckets: BTreeMap<i64, Vec<usize>> = BTreeMap::new();
             for i in 1..row.len() {
-                let gap = numbers[row[i]] - numbers[row[i - 1]];
+                let gap = numbers[row[i]] as i64 - numbers[row[i - 1]] as i64;
                 buckets.entry(gap).or_default().push(row[i]);
             }
             for (g, bucket) in buckets {

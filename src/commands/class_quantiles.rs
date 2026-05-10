@@ -8,7 +8,7 @@ use crate::stats::loglog_slope;
 
 pub fn cmd_class_quantiles(n: usize, seed: Option<&PathBuf>, outdir: &PathBuf) {
     eprintln!("Loading {} numbers...", n);
-    let numbers = load_numbers(n, seed);
+    let numbers = load_numbers(n, seed, false);
     eprintln!("Computing m-values...");
     let m_values = compute_m(&numbers);
 

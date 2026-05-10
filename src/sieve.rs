@@ -88,7 +88,13 @@ pub fn sieve_up_to(limit: u64, max_count: Option<usize>) -> Vec<u64> {
 }
 
 /// Load numbers from seed file or sieve first `n` primes.
-pub fn load_numbers(n: usize, seed: Option<&PathBuf>) -> Vec<u64> {
+///
+/// When `preserve_order` is false (the default for callers), seed-file inputs
+/// are sorted ascending and de-duplicated — this is what the empirical/
+/// statistical commands expect. When true, the file is read as-is, allowing
+/// non-monotone or duplicate-bearing sequences to flow through unchanged.
+/// Sieved primes are always monotone regardless.
+pub fn load_numbers(n: usize, seed: Option<&PathBuf>, preserve_order: bool) -> Vec<u64> {
     match seed {
         Some(path) => {
             let file = File::open(path).expect("cannot open seed file");
@@ -99,8 +105,10 @@ pub fn load_numbers(n: usize, seed: Option<&PathBuf>) -> Vec<u64> {
                 .filter_map(|l| l.trim().parse::<u64>().ok())
                 .take(n)
                 .collect();
-            nums.sort_unstable();
-            nums.dedup();
+            if !preserve_order {
+                nums.sort_unstable();
+                nums.dedup();
+            }
             nums
         }
         None => sieve_first_n(n),

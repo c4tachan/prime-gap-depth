@@ -5,21 +5,13 @@ use std::path::Path;
 
 /// For each iteration level ℓ, print the rows of `L_ℓ` (and write a CSV).
 ///
-/// `numbers` must be strictly ascending. The level-0 row is the whole sequence;
-/// each subsequent level partitions every parent row by in-row gap value.
+/// Numbers are processed in the order given. Rows are ordered by position
+/// (index into `numbers`), not by value, so non-monotone inputs are accepted;
+/// in-row gaps are signed integers in that case.
 pub fn cmd_iterations(numbers: &[u64], outdir: &Path) {
     if numbers.is_empty() {
         eprintln!("No numbers to process.");
         return;
-    }
-    for w in numbers.windows(2) {
-        if w[0] >= w[1] {
-            eprintln!(
-                "error: input numbers must be strictly ascending (got {} then {})",
-                w[0], w[1]
-            );
-            return;
-        }
     }
 
     let n = numbers.len();
@@ -36,7 +28,7 @@ pub fn cmd_iterations(numbers: &[u64], outdir: &Path) {
     .unwrap();
 
     // Each entry: (gap that produced this row from its parent — None at level 0, row positions).
-    let mut current: Vec<(Option<u64>, Vec<usize>)> = vec![(None, (0..n).collect())];
+    let mut current: Vec<(Option<i64>, Vec<usize>)> = vec![(None, (0..n).collect())];
     let mut level: u32 = 0;
 
     println!("\n=== Iteration rows ({} numbers) ===", n);
@@ -54,14 +46,14 @@ pub fn cmd_iterations(numbers: &[u64], outdir: &Path) {
             write_row_csv(&mut csv, numbers, level, row_id, *producing_gap, row);
         }
 
-        let mut next: Vec<(Option<u64>, Vec<usize>)> = Vec::new();
+        let mut next: Vec<(Option<i64>, Vec<usize>)> = Vec::new();
         for (_, row) in &current {
             if row.len() <= 1 {
                 continue;
             }
-            let mut buckets: BTreeMap<u64, Vec<usize>> = BTreeMap::new();
+            let mut buckets: BTreeMap<i64, Vec<usize>> = BTreeMap::new();
             for i in 1..row.len() {
-                let gap = numbers[row[i]] - numbers[row[i - 1]];
+                let gap = numbers[row[i]] as i64 - numbers[row[i - 1]] as i64;
                 buckets.entry(gap).or_default().push(row[i]);
             }
             for (g, bucket) in buckets {
@@ -76,7 +68,7 @@ pub fn cmd_iterations(numbers: &[u64], outdir: &Path) {
     eprintln!("Wrote {} ({} levels)", csv_path.display(), level);
 }
 
-fn print_row(numbers: &[u64], level: u32, row_id: usize, producing_gap: Option<u64>, row: &[usize]) {
+fn print_row(numbers: &[u64], level: u32, row_id: usize, producing_gap: Option<i64>, row: &[usize]) {
     let header = match producing_gap {
         Some(g) => format!("level {} row {}  gap={}  k={}", level, row_id, g, row.len()),
         None => format!("level {} row {}  k={}", level, row_id, row.len()),
@@ -84,30 +76,38 @@ fn print_row(numbers: &[u64], level: u32, row_id: usize, producing_gap: Option<u
     println!("  {}", header);
 
     let values: Vec<u64> = row.iter().map(|&i| numbers[i]).collect();
-    println!("    values: {}", format_seq(&values));
+    println!("    values: {}", format_seq_u64(&values));
 
     if row.len() >= 2 {
-        let gaps: Vec<u64> = (1..row.len())
-            .map(|i| numbers[row[i]] - numbers[row[i - 1]])
+        let gaps: Vec<i64> = (1..row.len())
+            .map(|i| numbers[row[i]] as i64 - numbers[row[i - 1]] as i64)
             .collect();
-        println!("    gaps:   {}", format_seq(&gaps));
+        println!("    gaps:   {}", format_seq_i64(&gaps));
     }
 }
 
-fn format_seq(xs: &[u64]) -> String {
+fn format_seq_u64(xs: &[u64]) -> String {
+    format_seq_with(xs, |x| x.to_string())
+}
+
+fn format_seq_i64(xs: &[i64]) -> String {
+    format_seq_with(xs, |x| x.to_string())
+}
+
+fn format_seq_with<T, F: Fn(&T) -> String>(xs: &[T], to_s: F) -> String {
     const MAX_INLINE: usize = 32;
     if xs.len() <= MAX_INLINE {
-        let parts: Vec<String> = xs.iter().map(|x| x.to_string()).collect();
+        let parts: Vec<String> = xs.iter().map(&to_s).collect();
         format!("[{}]", parts.join(", "))
     } else {
-        let head: Vec<String> = xs.iter().take(8).map(|x| x.to_string()).collect();
-        let tail: Vec<String> = xs.iter().rev().take(4).map(|x| x.to_string()).collect();
-        let tail_rev: Vec<String> = tail.into_iter().rev().collect();
+        let head: Vec<String> = xs.iter().take(8).map(&to_s).collect();
+        let tail_rev: Vec<String> = xs.iter().rev().take(4).map(&to_s).collect();
+        let tail: Vec<String> = tail_rev.into_iter().rev().collect();
         format!(
             "[{}, … ({} more) …, {}]",
             head.join(", "),
             xs.len() - 12,
-            tail_rev.join(", ")
+            tail.join(", ")
         )
     }
 }
@@ -117,7 +117,7 @@ fn write_row_csv<W: Write>(
     numbers: &[u64],
     level: u32,
     row_id: usize,
-    producing_gap: Option<u64>,
+    producing_gap: Option<i64>,
     row: &[usize],
 ) {
     let producing = producing_gap
@@ -127,7 +127,7 @@ fn write_row_csv<W: Write>(
         let in_row_gap = if j == 0 {
             String::new()
         } else {
-            (numbers[idx] - numbers[row[j - 1]]).to_string()
+            (numbers[idx] as i64 - numbers[row[j - 1]] as i64).to_string()
         };
         writeln!(
             csv,

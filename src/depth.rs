@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 /// Compute m(p) for each number in the input array.
 ///
 /// m(p) is the "depth" — the number of recursive gap-regrouping iterations
-/// before p becomes the leader (smallest element) of its group. See
+/// before p becomes the leader (smallest-position element) of its group. See
 /// `docs/algorithm.md` for the formal construction.
 ///
 /// Index convention: the formal definition uses 1-indexed rows with
@@ -11,6 +11,10 @@ use std::collections::BTreeMap;
 /// and `i_j` (the destination) is what gets bucketed. The loop below uses a
 /// 0-indexed Rust range `1..row.len()`, which is the same iteration: index
 /// `i` here corresponds to math index `j = i+1`, and `row[i]` is `i_j`.
+///
+/// Gaps are computed as signed `i64` so the algorithm handles non-monotone
+/// inputs (rows ordered by *position*, not value). For monotone inputs all
+/// gaps are positive and behavior is identical to the original.
 ///
 /// Returns a Vec<u32> of the same length as `numbers`, where each entry is
 /// the m-value (depth level) for that number.
@@ -36,9 +40,9 @@ pub fn compute_m(numbers: &[u64]) -> Vec<u32> {
 
         // Compute gaps and group remaining by gap value
         // Use a BTreeMap so buckets are processed in consistent order
-        let mut buckets: BTreeMap<u64, Vec<usize>> = BTreeMap::new();
+        let mut buckets: BTreeMap<i64, Vec<usize>> = BTreeMap::new();
         for i in 1..row.len() {
-            let gap = numbers[row[i]] - numbers[row[i - 1]];
+            let gap = numbers[row[i]] as i64 - numbers[row[i - 1]] as i64;
             buckets.entry(gap).or_default().push(row[i]);
         }
 
