@@ -41,7 +41,9 @@ A theorem (proved in [docs/algorithm.md §3](docs/algorithm.md)) shows
 The reference implementation is `compute_m` in [src/depth.rs](src/depth.rs);
 it runs the recursion as a worklist over `Vec<usize>` index-rows with
 `BTreeMap<u64, Vec<usize>>` for bucketing, giving `O(N · D · log N)`
-runtime where `D = max m + 1`.
+runtime where `D = max m + 1`. A second implementation in PARI/GP lives in
+[pari/gap_depth.gp](pari/gap_depth.gp) — used as an independent
+cross-check and as the source of OEIS `PROG` entries.
 
 ## Building
 
@@ -117,6 +119,43 @@ The default run writes `out/results.csv` with one row per input number,
 containing the number, its `m` value, and (when running on primes) its
 pi-chain depth. Subcommands write additional TSV/CSV files into the same
 directory; see the `out/` folder for examples produced by recent runs.
+
+## Testing
+
+Rust unit tests pin the n=100 histogram and the m-class membership for
+m ∈ {0, 1, 4} against hard-coded values:
+
+```
+cargo test --release
+```
+
+For end-to-end cross-validation against the independent PARI/GP
+implementation, run:
+
+```
+bash tests/cross_check.sh
+```
+
+This runs four layers:
+
+1. `cargo test` (Rust correctness against pinned values).
+2. PARI sanity tests at n=100 (same pinned values, plus first 50 of A395913).
+3. Diff of `(pi, p, m)` for the first 1000 primes between the Rust binary
+   and the PARI implementation — must be byte-identical.
+4. Regression check that [pari/oeis_prog.gp](pari/oeis_prog.gp) — the
+   self-contained snippet pasted into OEIS submissions — still produces
+   the exact first 50 terms of A395913.
+
+Requires `pari-gp` on `PATH` (`sudo apt install pari-gp` on Debian/Ubuntu).
+
+## OEIS submissions
+
+The b-files in `out/oeis_m*.txt` are produced by `pgd oeis-export`. The
+PARI `PROG` snippet for any gap-depth sequence is in
+[pari/oeis_prog.gp](pari/oeis_prog.gp); the body of that file (between
+the function definition and the trailing `print(...)` line) is what gets
+pasted into the OEIS PROG entry, with the final `print` line adjusted for
+the target depth and term count.
 
 ## Performance
 
