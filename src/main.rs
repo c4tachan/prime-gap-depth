@@ -78,6 +78,9 @@ enum Command {
     },
     /// Pi-chain depth measurement layer: family counts, first appearances, C(m,k), ratios
     PiChain,
+    /// For each prime working from the end of the set, find the minimum number
+    /// of predecessors needed to reproduce its global m-value locally.
+    Locality,
     /// Print the rows at each iteration level for a given set of numbers.
     /// Positional NUMBERs are used in the order given (no sorting). Non-monotone
     /// sequences are accepted; in-row gaps become signed integers in that case.
@@ -172,6 +175,9 @@ fn main() {
                 numbers.clone()
             };
             cmd_iterations(&nums, outdir);
+        }
+        Some(Command::Locality) => {
+            cmd_locality(n, outdir);
         }
         Some(Command::GapAddress { numbers }) => {
             let nums = if numbers.is_empty() {

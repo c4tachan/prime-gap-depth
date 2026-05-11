@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Read};
 use std::path::PathBuf;
 
 /// Returns the first `n` primes using Sieve of Eratosthenes.
@@ -94,9 +94,50 @@ pub fn sieve_up_to(limit: u64, max_count: Option<usize>) -> Vec<u64> {
 /// statistical commands expect. When true, the file is read as-is, allowing
 /// non-monotone or duplicate-bearing sequences to flow through unchanged.
 /// Sieved primes are always monotone regardless.
+/// Load a binary `.gaps` file produced by `gen_gap_file`.
+///
+/// Format: 8-byte u64 LE first prime, then (N-1) u16 LE gaps.
+/// Reconstructs the full prime sequence up to `n` entries.
+fn load_gap_file(path: &PathBuf, n: usize) -> Vec<u64> {
+    let mut file = File::open(path).expect("cannot open .gaps file");
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes).expect("cannot read .gaps file");
+
+    if bytes.len() < 8 {
+        panic!("gap file too short — missing u64 header");
+    }
+
+    let first = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+    let gap_bytes = &bytes[8..];
+
+    if gap_bytes.len() % 2 != 0 {
+        panic!("gap file has odd number of gap bytes");
+    }
+
+    let num_gaps = gap_bytes.len() / 2;
+    let capacity = (num_gaps + 1).min(n);
+    let mut primes = Vec::with_capacity(capacity);
+    primes.push(first);
+
+    let mut current = first;
+    for chunk in gap_bytes.chunks_exact(2) {
+        if primes.len() >= n {
+            break;
+        }
+        let gap = u16::from_le_bytes([chunk[0], chunk[1]]) as u64;
+        current += gap;
+        primes.push(current);
+    }
+
+    primes
+}
+
 pub fn load_numbers(n: usize, seed: Option<&PathBuf>, preserve_order: bool) -> Vec<u64> {
     match seed {
         Some(path) => {
+            if path.extension().and_then(|e| e.to_str()) == Some("gaps") {
+                return load_gap_file(path, n);
+            }
             let file = File::open(path).expect("cannot open seed file");
             let reader = io::BufReader::new(file);
             let mut nums: Vec<u64> = reader

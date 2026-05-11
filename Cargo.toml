@@ -7,6 +7,10 @@ edition = "2021"
 name = "pgd"
 path = "src/main.rs"
 
+[[bin]]
+name = "gen_gap_file"
+path = "src/gen_gap_file.rs"
+
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 
