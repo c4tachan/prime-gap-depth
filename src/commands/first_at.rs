@@ -3,18 +3,18 @@ use std::path::PathBuf;
 use crate::sieve::load_numbers;
 use crate::depth::compute_m;
 
-pub fn cmd_first_at(max_m: u32, n: usize, seed: Option<&PathBuf>, use_primes: bool) {
-    println!("Searching for first prime at each m-level 0..={}\n", max_m);
+pub fn cmd_first_at(max_m: u32, n: usize, seed: Option<&PathBuf>, from_generator: bool) {
+    println!("Searching for first element at each m-level 0..={}\n", max_m);
 
     let mut results: Vec<Option<(usize, u64)>> = vec![None; max_m as usize + 1];
     let mut batch_n = 1_000usize;
     const N_MAX: usize = 100_000_000;
-    let fixed_input = seed.is_some() || !use_primes;
+    let fixed_input = seed.is_some() || !from_generator;
 
     loop {
         let current_n = if fixed_input { n } else { batch_n };
         eprint!("  loading {} numbers... ", current_n);
-        let numbers = load_numbers(current_n, seed, use_primes, false);
+        let numbers = load_numbers(current_n, seed, from_generator, false);
         let m_values = compute_m(&numbers);
 
         for level in 0..=max_m {
@@ -35,7 +35,7 @@ pub fn cmd_first_at(max_m: u32, n: usize, seed: Option<&PathBuf>, use_primes: bo
         batch_n = (batch_n * 10).min(N_MAX);
     }
 
-    println!("{:<6} {:>16} {:>16}", "m", "pi (index)", "p (prime)");
+    println!("{:<6} {:>16} {:>16}", "m", "index", "value");
     println!("{}", "-".repeat(42));
     for (level, result) in results.iter().enumerate() {
         match result {

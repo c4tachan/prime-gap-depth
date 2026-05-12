@@ -6,9 +6,9 @@ use crate::sieve::load_numbers;
 use crate::depth::compute_m;
 use crate::stats::loglog_slope;
 
-pub fn cmd_class_quantiles(n: usize, seed: Option<&PathBuf>, use_primes: bool, outdir: &PathBuf) {
+pub fn cmd_class_quantiles(n: usize, seed: Option<&PathBuf>, from_generator: bool, outdir: &PathBuf) {
     eprintln!("Loading {} numbers...", n);
-    let numbers = load_numbers(n, seed, use_primes, false);
+    let numbers = load_numbers(n, seed, from_generator, false);
     eprintln!("Computing m-values...");
     let m_values = compute_m(&numbers);
 
@@ -47,7 +47,7 @@ pub fn cmd_class_quantiles(n: usize, seed: Option<&PathBuf>, use_primes: bool, o
     fs::create_dir_all(outdir).unwrap();
     let path = outdir.join("class_quantiles.tsv");
     let mut w = BufWriter::new(File::create(&path).unwrap());
-    writeln!(w, "m\tsize\tk\tprime_index\tprime_value").unwrap();
+    writeln!(w, "m\tsize\tk\telement_index\telement_value").unwrap();
     for level in 0..=max_m {
         let cls = &classes[level as usize];
         for &k in &ordinals {
@@ -59,7 +59,7 @@ pub fn cmd_class_quantiles(n: usize, seed: Option<&PathBuf>, use_primes: bool, o
     }
     eprintln!("Wrote {}", path.display());
 
-    println!("\nLog-log fit  log(prime_index) vs log(k)  within each class:");
+    println!("\nLog-log fit  log(element_index) vs log(k)  within each class:");
     println!("{:<6} {:>8} {:>12}", "m", "slope", "intercept");
     println!("{}", "-".repeat(30));
     for level in 0..=max_m {

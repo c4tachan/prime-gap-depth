@@ -6,11 +6,11 @@ use crate::sieve::load_numbers;
 use crate::depth::compute_pi_chain;
 use crate::stats::{build_histogram, print_histogram};
 
-pub fn cmd_pi_chain(n: usize, seed: Option<&PathBuf>, use_primes: bool, outdir: &PathBuf) {
+pub fn cmd_pi_chain(n: usize, seed: Option<&PathBuf>, from_generator: bool, outdir: &PathBuf) {
     eprintln!("Loading {} numbers...", n);
-    let primes = load_numbers(n, seed, use_primes, false);
+    let numbers = load_numbers(n, seed, from_generator, false);
     eprintln!("Computing pi-chain depths...");
-    let depths = compute_pi_chain(&primes);
+    let depths = compute_pi_chain(&numbers);
 
     let hist = build_histogram(&depths);
     let max_d = *depths.iter().max().unwrap_or(&0);
@@ -18,18 +18,18 @@ pub fn cmd_pi_chain(n: usize, seed: Option<&PathBuf>, use_primes: bool, outdir: 
     println!("\n=== Pi-chain depth: family counts ===");
     print_histogram(&hist);
 
-    println!("\n=== First appearances (smallest prime achieving each pi-chain depth) ===");
-    println!("{:<6} {:>16} {:>16}", "m", "pi (index)", "p");
+    println!("\n=== First appearances (smallest value achieving each pi-chain depth) ===");
+    println!("{:<6} {:>16} {:>16}", "m", "index", "value");
     println!("{}", "-".repeat(42));
     for level in 0..=max_d {
         if let Some(pos) = depths.iter().position(|&d| d == level) {
-            println!("{:<6} {:>16} {:>16}", level, pos + 1, primes[pos]);
+            println!("{:<6} {:>16} {:>16}", level, pos + 1, numbers[pos]);
         }
     }
 
-    // Per-class ordered list of (1-based prime index, prime value).
+    // Per-class ordered list of (1-based index, value).
     let mut classes: Vec<Vec<(usize, u64)>> = vec![Vec::new(); max_d as usize + 1];
-    for (i, (&p, &d)) in primes.iter().zip(depths.iter()).enumerate() {
+    for (i, (&p, &d)) in numbers.iter().zip(depths.iter()).enumerate() {
         classes[d as usize].push((i + 1, p));
     }
 

@@ -21,7 +21,7 @@ enum Generator {
 }
 
 #[derive(Parser)]
-#[command(name = "pgd", about = "Prime Gap Depth — iterated-regrouping construction on primes")]
+#[command(name = "pgd", about = "Prime Gap Depth — iterated-regrouping construction on an input set")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
@@ -55,9 +55,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Verify m(p) is dataset-independent across cutoffs
+    /// Verify m(s) is dataset-independent across cutoffs
     Stability,
-    /// Distribution of primes mod MOD per m-class with chi-squared p-values
+    /// Distribution of input values mod MOD per m-class with chi-squared p-values
     ModResidue {
         #[arg(default_value_t = 30)]
         modulus: u64,
@@ -66,13 +66,13 @@ enum Command {
     Growth,
     /// Export each small m-class as an OEIS b-file
     OeisExport,
-    /// Find the first prime to achieve each m-value up to MAX_M
+    /// Find the first input value to achieve each m-value up to MAX_M
     FirstAt {
         /// Search up to this m-value (default: 6)
         #[arg(default_value_t = 6)]
         max_m: u32,
     },
-    /// Within each m-class, show the 1st, 10th, 100th, ... prime that hits that level
+    /// Within each m-class, show the 1st, 10th, 100th, ... element that hits that level
     ClassQuantiles,
     /// Overlay log-log CDFs of m-classes; estimate horizontal shift between consecutive classes
     Overlay,
@@ -87,10 +87,10 @@ enum Command {
     },
     /// Pi-chain depth measurement layer: family counts, first appearances, C(m,k), ratios
     PiChain,
-    /// Scan from the last prime backwards with a growing window size W. For each
-    /// prime, compute m on its local predecessor window and check it matches the
+    /// Scan from the last element backwards with a growing window size W. For each
+    /// element, compute m on its local predecessor window and check it matches the
     /// global m-value. On mismatch, increment W and restart from the end.
-    /// Reports the window size at first acceptance for every prime.
+    /// Reports the window size at first acceptance for every element.
     Locality,
     /// Print the rows at each iteration level for a given set of numbers.
     /// Positional NUMBERs are used in the order given (no sorting). Non-monotone
@@ -120,7 +120,7 @@ fn main() {
     let cli = Cli::parse();
     let n = cli.count;
     let seed = cli.seed_file.as_ref();
-    let use_primes = matches!(cli.generator, Some(Generator::Primes));
+    let from_generator = cli.generator.is_some();
     let outdir = &cli.outdir;
     let preserve_order = cli.preserve_order;
 
@@ -132,11 +132,11 @@ fn main() {
     match &cli.command {
         None => {
             eprintln!("Loading {} numbers...", n);
-            let numbers = load_numbers(n, seed, use_primes, preserve_order);
+            let numbers = load_numbers(n, seed, from_generator, preserve_order);
             eprintln!("Computing gap-depth m-values...");
             let m_values = compute_m(&numbers);
 
-            let pichain = if use_primes && seed.is_none() {
+            let pichain = if from_generator && seed.is_none() {
                 eprintln!("Computing pi-chain depth...");
                 Some(compute_pi_chain(&numbers))
             } else {
@@ -159,46 +159,46 @@ fn main() {
                 .expect("failed writing CSV");
         }
         Some(Command::Stability) => {
-            cmd_stability(seed, use_primes);
+            cmd_stability(seed, from_generator);
         }
         Some(Command::ModResidue { modulus }) => {
-            cmd_mod_residue(n, seed, use_primes, outdir, *modulus);
+            cmd_mod_residue(n, seed, from_generator, outdir, *modulus);
         }
         Some(Command::Growth) => {
-            cmd_growth(seed, use_primes, outdir);
+            cmd_growth(seed, from_generator, outdir);
         }
         Some(Command::OeisExport) => {
-            cmd_oeis_export(n, seed, use_primes, outdir);
+            cmd_oeis_export(n, seed, from_generator, outdir);
         }
         Some(Command::FirstAt { max_m }) => {
-            cmd_first_at(*max_m, n, seed, use_primes);
+            cmd_first_at(*max_m, n, seed, from_generator);
         }
         Some(Command::ClassQuantiles) => {
-            cmd_class_quantiles(n, seed, use_primes, outdir);
+            cmd_class_quantiles(n, seed, from_generator, outdir);
         }
         Some(Command::Overlay) => {
-            cmd_overlay(n, seed, use_primes, outdir);
+            cmd_overlay(n, seed, from_generator, outdir);
         }
         Some(Command::Predict { m_min, m_max }) => {
-            cmd_predict(n, seed, use_primes, *m_min, *m_max);
+            cmd_predict(n, seed, from_generator, *m_min, *m_max);
         }
         Some(Command::PiChain) => {
-            cmd_pi_chain(n, seed, use_primes, outdir);
+            cmd_pi_chain(n, seed, from_generator, outdir);
         }
         Some(Command::Iterations { numbers }) => {
             let nums = if numbers.is_empty() {
-                load_numbers(n, seed, use_primes, preserve_order)
+                load_numbers(n, seed, from_generator, preserve_order)
             } else {
                 numbers.clone()
             };
             cmd_iterations(&nums, outdir);
         }
         Some(Command::Locality) => {
-            cmd_locality(n, seed, use_primes, outdir);
+            cmd_locality(n, seed, from_generator, outdir);
         }
         Some(Command::GapAddress { numbers }) => {
             let nums = if numbers.is_empty() {
-                load_numbers(n, seed, use_primes, preserve_order)
+                load_numbers(n, seed, from_generator, preserve_order)
             } else {
                 numbers.clone()
             };

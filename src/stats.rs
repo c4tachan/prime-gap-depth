@@ -23,7 +23,7 @@ pub fn print_histogram(hist: &BTreeMap<u32, usize>) {
 }
 
 pub fn print_per_level(numbers: &[u64], m_values: &[u32], hist: &BTreeMap<u32, usize>) {
-    println!("\nPer m-level (first 10 primes):");
+    println!("\nPer m-level (first 10 values):");
     println!("{:<6} {:>10}  first 10", "m", "count");
     println!("{}", "-".repeat(60));
 
@@ -54,8 +54,8 @@ pub fn write_csv(
     let file = File::create(&path)?;
     let mut w = BufWriter::new(file);
     match m_pichain {
-        Some(_) => writeln!(w, "pi,p,m_gap,m_pichain")?,
-        None => writeln!(w, "pi,p,m_gap")?,
+        Some(_) => writeln!(w, "index,value,m_gap,m_pichain")?,
+        None => writeln!(w, "index,value,m_gap")?,
     }
     for (i, (&p, &m)) in numbers.iter().zip(m_values.iter()).enumerate() {
         match m_pichain {

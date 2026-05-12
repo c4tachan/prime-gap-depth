@@ -135,7 +135,7 @@ fn load_gap_file(path: &PathBuf, n: usize) -> Vec<u64> {
 pub fn load_numbers(
     n: usize,
     seed: Option<&PathBuf>,
-    use_primes: bool,
+    from_generator: bool,
     preserve_order: bool,
 ) -> Vec<u64> {
     match seed {
@@ -157,7 +157,7 @@ pub fn load_numbers(
             }
             nums
         }
-        None if use_primes => sieve_first_n(n),
+        None if from_generator => sieve_first_n(n),
         None => panic!("no input source selected: pass --seed-file FILE or --generator primes"),
     }
 }

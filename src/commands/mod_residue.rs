@@ -10,11 +10,11 @@ use crate::stats::chi2_p_value_approx;
 pub fn cmd_mod_residue(
     n: usize,
     seed: Option<&PathBuf>,
-    use_primes: bool,
+    from_generator: bool,
     outdir: &PathBuf,
     modulus: u64,
 ) {
-    let numbers = load_numbers(n, seed, use_primes, false);
+    let numbers = load_numbers(n, seed, from_generator, false);
     let m_values = compute_m(&numbers);
 
     // Baseline: all numbers mod modulus

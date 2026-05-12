@@ -4,9 +4,9 @@ use crate::sieve::load_numbers;
 use crate::depth::compute_m;
 use crate::stats::{quadratic_fit, linear_fit};
 
-pub fn cmd_predict(n: usize, seed: Option<&PathBuf>, use_primes: bool, m_min: u32, m_max: u32) {
+pub fn cmd_predict(n: usize, seed: Option<&PathBuf>, from_generator: bool, m_min: u32, m_max: u32) {
     eprintln!("Loading {} numbers...", n);
-    let numbers = load_numbers(n, seed, use_primes, false);
+    let numbers = load_numbers(n, seed, from_generator, false);
     eprintln!("Computing m-values...");
     let m_values = compute_m(&numbers);
 
@@ -75,7 +75,7 @@ pub fn cmd_predict(n: usize, seed: Option<&PathBuf>, use_primes: bool, m_min: u3
     println!("\nProjections for higher m:");
     println!(
         "{:<6} {:>14} {:>26} {:>26}",
-        "m", "ln(idx) pred", "predicted prime index", "approx prime value"
+        "m", "ln(idx) pred", "predicted element index", "approx element value"
     );
     println!("{}", "-".repeat(76));
     for m in m_min..=m_max {
@@ -101,7 +101,7 @@ pub fn cmd_predict(n: usize, seed: Option<&PathBuf>, use_primes: bool, m_min: u3
     }
 
     println!(
-        "\nNotes:\n  - 'predicted prime index' is what the quadratic extrapolation gives for the smallest\n    prime in that m-class. Compare against observed values where available.\n  - 'approx prime value' uses the PNT estimate p ~ n * ln(n) — only an order of magnitude.\n  - Confidence is highest near the fit range (m={}..{}). Each step beyond that compounds error."
+        "\nNotes:\n  - 'predicted element index' is what the quadratic extrapolation gives for the smallest\n    element in that m-class. Compare against observed values where available.\n  - 'approx element value' uses the PNT-style estimate p ~ n * ln(n) as a rough scale guide.\n  - Confidence is highest near the fit range (m={}..{}). Each step beyond that compounds error."
         , m_min, observed_max_m
     );
 }
