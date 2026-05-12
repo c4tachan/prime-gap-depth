@@ -5,14 +5,14 @@ use std::path::PathBuf;
 use crate::sieve::sieve_first_n;
 use crate::depth::compute_m;
 
-/// Find the minimum window size W such that, when computing m-values on the
-/// suffix primes[n-W..n], every prime in that window matches its global m-value.
+/// Scan from the last prime backwards, maintaining a growing window size `w`.
 ///
-/// Algorithm: start with W=1 anchored at the end. Step backwards one prime at
-/// a time. If the new prime doesn't match with the current window, expand W
-/// until it does — then re-verify all primes already in the window with the
-/// new W. Keep expanding until the whole window is consistent. Stop if W
-/// reaches the index of the current prime (full prefix needed).
+/// For each prime at index `i`, compute m on the local window
+/// `primes[i+1-w ..= i]` and check whether the last element's local m matches
+/// `global_m[i]`. If it does, record the acceptance window and move to `i-1`.
+/// If it doesn't, increment `w` and restart the scan from `i = n-1`.
+///
+/// Each prime's recorded window is `w` at the time it was first accepted.
 pub fn cmd_locality(n: usize, outdir: &PathBuf) {
     eprintln!("Loading {} primes...", n);
     let primes = sieve_first_n(n);
@@ -24,85 +24,65 @@ pub fn cmd_locality(n: usize, outdir: &PathBuf) {
     let mut file = fs::File::create(&out_path).expect("cannot create locality.csv");
     writeln!(file, "index,prime,global_m,window_at_acceptance").unwrap();
 
+    // window_at[i] = w when primes[i] was first accepted; 0 = not yet accepted.
+    let mut window_at = vec![0usize; n];
+
+    let mut w = 1usize;
+    let mut i = n - 1;
+
+    loop {
+        let lo = i.saturating_sub(w - 1);
+        let window = &primes[lo..=i];
+        let local_m = compute_m(window);
+
+        if local_m[window.len() - 1] == global_m[i] {
+            if window_at[i] == 0 {
+                window_at[i] = w;
+            }
+            if i == 0 {
+                break;
+            }
+            i -= 1;
+        } else {
+            w += 1;
+            if w > n {
+                // Give up — record remaining unaccepted primes as needing full set.
+                for j in 0..=i {
+                    if window_at[j] == 0 {
+                        window_at[j] = n;
+                    }
+                }
+                break;
+            }
+            i = n - 1;
+        }
+    }
+
     println!();
     println!("{:>10}  {:>14}  {:>8}  {:>10}", "index", "prime", "global_m", "window");
     println!("{}", "-".repeat(48));
 
-    // `w` is the current window size — the suffix primes[n-w..n].
-    // Invariant: all primes in the current window agree with global_m
-    // when computed together on primes[n-w..n].
-    let mut w = 0usize;
-    // Track window size at the point each prime was accepted, in reverse order.
-    let mut accepted: Vec<(usize, usize)> = Vec::with_capacity(n); // (global_index, window)
-    let mut stopped_at: Option<usize> = None;
-
-    'outer: for target in (0..n).rev() {
-        // Try expanding the window until the entire suffix primes[n-w..n]
-        // (which now includes `target`) is consistent.
-        loop {
-            w += 1;
-            let lo = n - w;
-            // w must not exceed target+1 (i.e. lo must not go past target).
-            // Since we're adding target, lo == target when w == n - target.
-            if lo < target {
-                // Shouldn't happen in normal flow, but guard anyway.
-                w = n - target;
-            }
-
-            let window = &primes[n - w..n];
-            let local_m = compute_m(window);
-
-            // Check every prime in the window against global.
-            let all_ok = (0..w).all(|i| local_m[i] == global_m[n - w + i]);
-
-            if all_ok {
-                // Record acceptance for each prime newly added (just `target` here,
-                // but re-verifications of earlier primes don't need re-recording).
-                println!("{:>10}  {:>14}  {:>8}  {:>10}", target, primes[target], global_m[target], w);
-                writeln!(file, "{},{},{},{}", target, primes[target], global_m[target], w).unwrap();
-                accepted.push((target, w));
-                break;
-            }
-
-            // Window not yet consistent — but check stopping condition before expanding.
-            if w >= target + 1 {
-                println!("{:>10}  {:>14}  {:>8}  {:>10}  (full set needed, stopping)",
-                    target, primes[target], global_m[target], w);
-                writeln!(file, "{},{},{},{}", target, primes[target], global_m[target], w).unwrap();
-                accepted.push((target, w));
-                stopped_at = Some(target);
-                break 'outer;
-            }
-        }
+    for idx in 0..n {
+        println!("{:>10}  {:>14}  {:>8}  {:>10}", idx, primes[idx], global_m[idx], window_at[idx]);
+        writeln!(file, "{},{},{},{}", idx, primes[idx], global_m[idx], window_at[idx]).unwrap();
     }
 
-    // Summary
-    let windows: Vec<usize> = accepted.iter().map(|&(_, w)| w).collect();
-    let count = windows.len();
-    if count == 0 {
-        println!("\nNo data.");
-        return;
-    }
-    let mut sorted = windows.clone();
+    let mut sorted = window_at.clone();
     sorted.sort_unstable();
-    let mean = sorted.iter().sum::<usize>() as f64 / count as f64;
-    let median = sorted[count / 2];
-    let p90 = sorted[(count as f64 * 0.90) as usize];
-    let p99 = sorted[(count as f64 * 0.99) as usize];
+    let mean = sorted.iter().sum::<usize>() as f64 / n as f64;
+    let median = sorted[n / 2];
+    let p90 = sorted[(n as f64 * 0.90) as usize];
+    let p99 = sorted[(n as f64 * 0.99) as usize];
     let max = *sorted.last().unwrap();
 
     println!();
-    println!("=== Summary ({} primes examined) ===", count);
+    println!("=== Summary ({} primes examined) ===", n);
     println!("  mean window : {:.1}", mean);
     println!("  median      : {}", median);
     println!("  p90         : {}", p90);
     println!("  p99         : {}", p99);
     println!("  max         : {}", max);
-    if let Some(idx) = stopped_at {
-        println!("  stopped at index {} (full prefix required)", idx);
-    } else {
-        println!("  completed all {} primes without hitting full-set condition", n);
-    }
     println!();
     println!("Output written to {}", out_path.display());
 }
+

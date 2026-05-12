@@ -78,8 +78,10 @@ enum Command {
     },
     /// Pi-chain depth measurement layer: family counts, first appearances, C(m,k), ratios
     PiChain,
-    /// For each prime working from the end of the set, find the minimum number
-    /// of predecessors needed to reproduce its global m-value locally.
+    /// Scan from the last prime backwards with a growing window size W. For each
+    /// prime, compute m on its local predecessor window and check it matches the
+    /// global m-value. On mismatch, increment W and restart from the end.
+    /// Reports the window size at first acceptance for every prime.
     Locality,
     /// Print the rows at each iteration level for a given set of numbers.
     /// Positional NUMBERs are used in the order given (no sorting). Non-monotone
