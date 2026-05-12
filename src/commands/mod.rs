@@ -9,6 +9,7 @@ pub mod predict;
 pub mod pi_chain;
 pub mod iterations;
 pub mod gap_address;
+pub mod gap_address_scan;
 pub mod locality;
 
 pub use stability::cmd_stability;
@@ -22,4 +23,5 @@ pub use predict::cmd_predict;
 pub use pi_chain::cmd_pi_chain;
 pub use iterations::cmd_iterations;
 pub use gap_address::cmd_gap_address;
+pub use gap_address_scan::cmd_gap_address_scan;
 pub use locality::cmd_locality;

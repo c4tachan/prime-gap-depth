@@ -110,6 +110,23 @@ enum Command {
         #[arg(value_name = "NUMBER")]
         numbers: Vec<u64>,
     },
+    /// Scan an existing gap_address.csv and report the number of unique values per
+    /// gap column at each 10^k row-prefix checkpoint (10^1 … 10^pow).
+    /// Single O(n) pass — no re-reading the file.
+    GapAddressScan {
+        /// Path to the gap_address.csv file to scan
+        #[arg(value_name = "CSV")]
+        csv_path: PathBuf,
+        /// Report at prefixes 10^1 through 10^pow
+        #[arg(value_name = "POW")]
+        pow: u32,
+        /// Write the report to this file instead of stdout
+        #[arg(short = 'O', long, value_name = "FILE")]
+        output: Option<PathBuf>,
+        /// Suppress the progress display on stderr
+        #[arg(long)]
+        no_progress: bool,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +140,12 @@ fn main() {
     let from_generator = cli.generator.is_some();
     let outdir = &cli.outdir;
     let preserve_order = cli.preserve_order;
+
+    // GapAddressScan reads its own file and needs no seed/generator
+    if let Some(Command::GapAddressScan { csv_path, pow, output, no_progress }) = &cli.command {
+        cmd_gap_address_scan(csv_path, *pow, output.as_deref(), !no_progress);
+        return;
+    }
 
     if seed.is_none() && cli.generator.is_none() {
         eprintln!("error: choose an input source: pass --seed-file FILE (or --seed-set FILE) or --generator primes");
@@ -203,6 +226,10 @@ fn main() {
                 numbers.clone()
             };
             cmd_gap_address(&nums, outdir);
+        }
+        Some(Command::GapAddressScan { .. }) => {
+            // handled above before the seed guard
+            unreachable!()
         }
     }
 }
