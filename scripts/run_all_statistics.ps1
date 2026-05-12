@@ -12,6 +12,7 @@ param(
     
     [Parameter(Mandatory = $false)]
     [Alias("s")]
+    [Alias("--seed-file")]
     [Alias("--seed-set")]
     [string]$SeedSet
 )
@@ -27,13 +28,16 @@ function runstatistics {
     $baseArgs = @("-o", "$DIR")
     $baseArgs += @("--preserve-order")
     if ($SeedSet) {
-        $baseArgs += @("--seed-set", $SeedSet)
+        $baseArgs += @("--seed-file", $SeedSet)
+    } else {
+        $baseArgs += @("--generator", "primes")
     }
     if ($count) {
         $baseArgs += @("-n", $count)
     }
 
-    ./target/release/pgd @baseArgs
+    ./target/release/pgd                 @baseArgs
+    ./target/release/pgd locality        @baseArgs
     ./target/release/pgd oeis-export     @baseArgs
     ./target/release/pgd mod-residue 30  @baseArgs
     ./target/release/pgd mod-residue 210 @baseArgs

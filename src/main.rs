@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 mod sieve;
@@ -15,29 +15,38 @@ use commands::*;
 // CLI
 // ---------------------------------------------------------------------------
 
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum Generator {
+    Primes,
+}
+
 #[derive(Parser)]
 #[command(name = "pgd", about = "Prime Gap Depth — iterated-regrouping construction on primes")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Command>,
 
-    /// Number of primes to use (default 1_000_000)
+    /// Number of input elements to use (default 1_000_000)
     #[arg(short = 'n', long, default_value_t = 1_000_000, global = true)]
     count: usize,
 
-    /// Supply your own integer sequence (one per line) instead of primes.
+    /// Supply your own integer sequence (one per line).
     /// By default the file is sorted+deduped on load (required by the
     /// empirical/statistical commands). Pass --preserve-order to use the
     /// file as-is for non-monotone inputs.
-    #[arg(long, value_name = "FILE", global = true)]
-    seed_set: Option<PathBuf>,
+    #[arg(long = "seed-file", alias = "seed-set", value_name = "FILE", global = true, conflicts_with = "generator")]
+    seed_file: Option<PathBuf>,
+
+    /// Choose a built-in generator when no seed file is provided.
+    #[arg(long, value_enum, global = true, conflicts_with = "seed_file")]
+    generator: Option<Generator>,
 
     /// Output directory for CSV/TSV files
     #[arg(short, long, default_value = "out", global = true)]
     outdir: PathBuf,
 
     /// Preserve input ordering (skip sort+dedup). Only meaningful with
-    /// --seed-set; honored by `iterations`, `gap-address`, and the default
+    /// --seed-file; honored by `iterations`, `gap-address`, and the default
     /// run. The empirical/statistical commands always sort+dedup regardless,
     /// since their analyses assume a monotone sequence.
     #[arg(long, global = true)]
@@ -88,7 +97,7 @@ enum Command {
     /// sequences are accepted; in-row gaps become signed integers in that case.
     Iterations {
         /// Optional explicit list of integers, used in the order given.
-        /// If omitted, falls back to -n / --seed-set.
+        /// If omitted, falls back to -n with --seed-file/--generator.
         #[arg(value_name = "NUMBER")]
         numbers: Vec<u64>,
     },
@@ -97,7 +106,7 @@ enum Command {
     /// sequences are accepted; gaps become signed integers in that case.
     GapAddress {
         /// Optional explicit list of integers, used in the order given.
-        /// If omitted, falls back to -n / --seed-set.
+        /// If omitted, falls back to -n with --seed-file/--generator.
         #[arg(value_name = "NUMBER")]
         numbers: Vec<u64>,
     },
@@ -110,18 +119,24 @@ enum Command {
 fn main() {
     let cli = Cli::parse();
     let n = cli.count;
-    let seed = cli.seed_set.as_ref();
+    let seed = cli.seed_file.as_ref();
+    let use_primes = matches!(cli.generator, Some(Generator::Primes));
     let outdir = &cli.outdir;
     let preserve_order = cli.preserve_order;
+
+    if seed.is_none() && cli.generator.is_none() {
+        eprintln!("error: choose an input source: pass --seed-file FILE (or --seed-set FILE) or --generator primes");
+        std::process::exit(2);
+    }
 
     match &cli.command {
         None => {
             eprintln!("Loading {} numbers...", n);
-            let numbers = load_numbers(n, seed, preserve_order);
+            let numbers = load_numbers(n, seed, use_primes, preserve_order);
             eprintln!("Computing gap-depth m-values...");
             let m_values = compute_m(&numbers);
 
-            let pichain = if seed.is_none() {
+            let pichain = if use_primes && seed.is_none() {
                 eprintln!("Computing pi-chain depth...");
                 Some(compute_pi_chain(&numbers))
             } else {
@@ -144,46 +159,46 @@ fn main() {
                 .expect("failed writing CSV");
         }
         Some(Command::Stability) => {
-            cmd_stability();
+            cmd_stability(seed, use_primes);
         }
         Some(Command::ModResidue { modulus }) => {
-            cmd_mod_residue(n, seed, outdir, *modulus);
+            cmd_mod_residue(n, seed, use_primes, outdir, *modulus);
         }
         Some(Command::Growth) => {
-            cmd_growth(seed, outdir);
+            cmd_growth(seed, use_primes, outdir);
         }
         Some(Command::OeisExport) => {
-            cmd_oeis_export(n, seed, outdir);
+            cmd_oeis_export(n, seed, use_primes, outdir);
         }
         Some(Command::FirstAt { max_m }) => {
-            cmd_first_at(*max_m);
+            cmd_first_at(*max_m, n, seed, use_primes);
         }
         Some(Command::ClassQuantiles) => {
-            cmd_class_quantiles(n, seed, outdir);
+            cmd_class_quantiles(n, seed, use_primes, outdir);
         }
         Some(Command::Overlay) => {
-            cmd_overlay(n, seed, outdir);
+            cmd_overlay(n, seed, use_primes, outdir);
         }
         Some(Command::Predict { m_min, m_max }) => {
-            cmd_predict(n, seed, *m_min, *m_max);
+            cmd_predict(n, seed, use_primes, *m_min, *m_max);
         }
         Some(Command::PiChain) => {
-            cmd_pi_chain(n, outdir);
+            cmd_pi_chain(n, seed, use_primes, outdir);
         }
         Some(Command::Iterations { numbers }) => {
             let nums = if numbers.is_empty() {
-                load_numbers(n, seed, preserve_order)
+                load_numbers(n, seed, use_primes, preserve_order)
             } else {
                 numbers.clone()
             };
             cmd_iterations(&nums, outdir);
         }
         Some(Command::Locality) => {
-            cmd_locality(n, outdir);
+            cmd_locality(n, seed, use_primes, outdir);
         }
         Some(Command::GapAddress { numbers }) => {
             let nums = if numbers.is_empty() {
-                load_numbers(n, seed, preserve_order)
+                load_numbers(n, seed, use_primes, preserve_order)
             } else {
                 numbers.clone()
             };

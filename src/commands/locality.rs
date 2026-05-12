@@ -2,7 +2,7 @@ use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 
-use crate::sieve::sieve_first_n;
+use crate::sieve::load_numbers;
 use crate::depth::compute_m;
 
 /// Scan from the last prime backwards, maintaining a growing window size `w`.
@@ -13,9 +13,9 @@ use crate::depth::compute_m;
 /// If it doesn't, increment `w` and restart the scan from `i = n-1`.
 ///
 /// Each prime's recorded window is `w` at the time it was first accepted.
-pub fn cmd_locality(n: usize, outdir: &PathBuf) {
-    eprintln!("Loading {} primes...", n);
-    let primes = sieve_first_n(n);
+pub fn cmd_locality(n: usize, seed: Option<&PathBuf>, use_primes: bool, outdir: &PathBuf) {
+    eprintln!("Loading {} numbers...", n);
+    let primes = load_numbers(n, seed, use_primes, false);
     eprintln!("Computing global m-values...");
     let global_m = compute_m(&primes);
 

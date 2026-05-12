@@ -6,9 +6,9 @@ use crate::sieve::load_numbers;
 use crate::depth::compute_m;
 use crate::stats::{loglog_slope, invert_curve_at_y};
 
-pub fn cmd_overlay(n: usize, seed: Option<&PathBuf>, outdir: &PathBuf) {
+pub fn cmd_overlay(n: usize, seed: Option<&PathBuf>, use_primes: bool, outdir: &PathBuf) {
     eprintln!("Loading {} numbers...", n);
-    let numbers = load_numbers(n, seed, false);
+    let numbers = load_numbers(n, seed, use_primes, false);
     eprintln!("Computing m-values...");
     let m_values = compute_m(&numbers);
 

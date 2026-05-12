@@ -7,8 +7,14 @@ use crate::sieve::load_numbers;
 use crate::depth::compute_m;
 use crate::stats::chi2_p_value_approx;
 
-pub fn cmd_mod_residue(n: usize, seed: Option<&PathBuf>, outdir: &PathBuf, modulus: u64) {
-    let numbers = load_numbers(n, seed, false);
+pub fn cmd_mod_residue(
+    n: usize,
+    seed: Option<&PathBuf>,
+    use_primes: bool,
+    outdir: &PathBuf,
+    modulus: u64,
+) {
+    let numbers = load_numbers(n, seed, use_primes, false);
     let m_values = compute_m(&numbers);
 
     // Baseline: all numbers mod modulus

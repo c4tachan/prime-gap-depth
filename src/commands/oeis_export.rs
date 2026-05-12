@@ -6,8 +6,8 @@ use crate::sieve::load_numbers;
 use crate::depth::compute_m;
 use crate::stats::build_histogram;
 
-pub fn cmd_oeis_export(n: usize, seed: Option<&PathBuf>, outdir: &PathBuf) {
-    let numbers = load_numbers(n, seed, false);
+pub fn cmd_oeis_export(n: usize, seed: Option<&PathBuf>, use_primes: bool, outdir: &PathBuf) {
+    let numbers = load_numbers(n, seed, use_primes, false);
     let m_values = compute_m(&numbers);
     let hist = build_histogram(&m_values);
 

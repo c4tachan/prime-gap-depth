@@ -87,13 +87,13 @@ pub fn sieve_up_to(limit: u64, max_count: Option<usize>) -> Vec<u64> {
     primes
 }
 
-/// Load numbers from seed file or sieve first `n` primes.
+/// Load numbers from a seed file or from the prime generator.
 ///
 /// When `preserve_order` is false (the default for callers), seed-file inputs
 /// are sorted ascending and de-duplicated — this is what the empirical/
 /// statistical commands expect. When true, the file is read as-is, allowing
 /// non-monotone or duplicate-bearing sequences to flow through unchanged.
-/// Sieved primes are always monotone regardless.
+/// Generated primes are always monotone regardless.
 /// Load a binary `.gaps` file produced by `gen_gap_file`.
 ///
 /// Format: 8-byte u64 LE first prime, then (N-1) u16 LE gaps.
@@ -132,7 +132,12 @@ fn load_gap_file(path: &PathBuf, n: usize) -> Vec<u64> {
     primes
 }
 
-pub fn load_numbers(n: usize, seed: Option<&PathBuf>, preserve_order: bool) -> Vec<u64> {
+pub fn load_numbers(
+    n: usize,
+    seed: Option<&PathBuf>,
+    use_primes: bool,
+    preserve_order: bool,
+) -> Vec<u64> {
     match seed {
         Some(path) => {
             if path.extension().and_then(|e| e.to_str()) == Some("gaps") {
@@ -152,7 +157,8 @@ pub fn load_numbers(n: usize, seed: Option<&PathBuf>, preserve_order: bool) -> V
             }
             nums
         }
-        None => sieve_first_n(n),
+        None if use_primes => sieve_first_n(n),
+        None => panic!("no input source selected: pass --seed-file FILE or --generator primes"),
     }
 }
 

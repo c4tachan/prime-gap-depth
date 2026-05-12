@@ -57,11 +57,11 @@ The binary is produced at `target/release/pgd`.
 
 ## Running
 
-The default invocation computes `m` (and the alternative pi-chain depth)
+The default run (with `--generator primes`) computes `m` (and the alternative pi-chain depth)
 on the first 1,000,000 primes, prints histograms, and writes a CSV:
 
 ```
-./target/release/pgd
+./target/release/pgd --generator primes
 ```
 
 Common flags (apply to most subcommands):
@@ -69,7 +69,8 @@ Common flags (apply to most subcommands):
 | flag | description |
 | --- | --- |
 | `-n, --count N` | number of elements to use (default `1_000_000`) |
-| `--seed-set FILE` | use the ascending integers in `FILE` (one per line) instead of primes |
+| `--seed-file FILE` | use the ascending integers in `FILE` (one per line) as input (`--seed-set` is an alias) |
+| `--generator NAME` | use a built-in generator (currently: `primes`) |
 | `-o, --outdir DIR` | output directory for CSV/TSV (default `out/`) |
 
 ### Subcommands
@@ -92,25 +93,25 @@ Common flags (apply to most subcommands):
 Compute on 10M primes, write outputs to `./results/`:
 
 ```
-./target/release/pgd -n 10000000 -o results
+./target/release/pgd --generator primes -n 10000000 -o results
 ```
 
 Distribution of `m`-classes mod 4:
 
 ```
-./target/release/pgd mod-residue 4
+./target/release/pgd --generator primes mod-residue 4
 ```
 
 Run the construction on a custom ascending integer sequence:
 
 ```
-./target/release/pgd --seed-set my_sequence.txt
+./target/release/pgd --seed-file my_sequence.txt
 ```
 
 Verify `m` is prefix-independent:
 
 ```
-./target/release/pgd stability
+./target/release/pgd --generator primes stability
 ```
 
 ## Output

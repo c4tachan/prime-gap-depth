@@ -2,13 +2,13 @@ use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 
-use crate::sieve::sieve_first_n;
+use crate::sieve::load_numbers;
 use crate::depth::compute_pi_chain;
 use crate::stats::{build_histogram, print_histogram};
 
-pub fn cmd_pi_chain(n: usize, outdir: &PathBuf) {
-    eprintln!("Sieving {} primes...", n);
-    let primes = sieve_first_n(n);
+pub fn cmd_pi_chain(n: usize, seed: Option<&PathBuf>, use_primes: bool, outdir: &PathBuf) {
+    eprintln!("Loading {} numbers...", n);
+    let primes = load_numbers(n, seed, use_primes, false);
     eprintln!("Computing pi-chain depths...");
     let depths = compute_pi_chain(&primes);
 

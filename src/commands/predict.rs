@@ -4,9 +4,9 @@ use crate::sieve::load_numbers;
 use crate::depth::compute_m;
 use crate::stats::{quadratic_fit, linear_fit};
 
-pub fn cmd_predict(n: usize, seed: Option<&PathBuf>, m_min: u32, m_max: u32) {
+pub fn cmd_predict(n: usize, seed: Option<&PathBuf>, use_primes: bool, m_min: u32, m_max: u32) {
     eprintln!("Loading {} numbers...", n);
-    let numbers = load_numbers(n, seed, false);
+    let numbers = load_numbers(n, seed, use_primes, false);
     eprintln!("Computing m-values...");
     let m_values = compute_m(&numbers);
 

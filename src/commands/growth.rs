@@ -7,13 +7,13 @@ use crate::sieve::load_numbers;
 use crate::depth::compute_m;
 use crate::stats::{build_histogram, loglog_slope};
 
-pub fn cmd_growth(seed: Option<&PathBuf>, outdir: &PathBuf) {
+pub fn cmd_growth(seed: Option<&PathBuf>, use_primes: bool, outdir: &PathBuf) {
     let ns: Vec<usize> = vec![100, 1_000, 10_000, 100_000, 1_000_000, 10_000_000];
     println!("Growth analysis across N values\n");
 
     let mut all_hists: Vec<(usize, BTreeMap<u32, usize>)> = Vec::new();
     for &n in &ns {
-        let numbers = load_numbers(n, seed, false);
+        let numbers = load_numbers(n, seed, use_primes, false);
         let m_values = compute_m(&numbers);
         let hist = build_histogram(&m_values);
         let max_m = hist.keys().max().copied().unwrap_or(0);
