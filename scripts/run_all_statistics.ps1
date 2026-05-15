@@ -38,7 +38,7 @@ function runstatistics {
 
     ./target/release/pgd                 @baseArgs
     # ./target/release/pgd locality        @baseArgs
-    ./target/release/pgd oeis-export     @baseArgs
+    # ./target/release/pgd oeis-export     @baseArgs
     ./target/release/pgd mod-residue 30  @baseArgs
     ./target/release/pgd mod-residue 210 @baseArgs
     ./target/release/pgd class-quantiles @baseArgs

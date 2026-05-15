@@ -7,7 +7,7 @@ mod stats;
 mod commands;
 
 use sieve::load_numbers;
-use depth::{compute_m, compute_pi_chain};
+use depth::{compute_m, compute_pi_chain, MLevel};
 use stats::{build_histogram, print_histogram, print_per_level, write_csv};
 use commands::*;
 
@@ -51,6 +51,13 @@ struct Cli {
     /// since their analyses assume a monotone sequence.
     #[arg(long, global = true)]
     preserve_order: bool,
+
+    /// Use u32 instead of u8 for m-values. Required for non-prime inputs
+    /// where gap-depth m can exceed 255 (e.g. digits of \u03c0 at N\u22652 600).
+    /// Default (u8) suffices for prime inputs (max m \u2248 6 at N=10^8) and
+    /// uses 4\u00d7 less memory at large N.
+    #[arg(long, global = true)]
+    wide_m: bool,
 }
 
 #[derive(Subcommand)]
@@ -65,7 +72,11 @@ enum Command {
     /// Show how m-class counts grow with N (100..100M)
     Growth,
     /// Export each small m-class as an OEIS b-file
-    OeisExport,
+    OeisExport {
+        /// Read from an existing results.csv instead of recomputing from scratch
+        #[arg(long, value_name = "CSV")]
+        from_csv: Option<PathBuf>,
+    },
     /// Find the first input value to achieve each m-value up to MAX_M
     FirstAt {
         /// Search up to this m-value (default: 6)
@@ -127,6 +138,56 @@ enum Command {
         #[arg(long)]
         no_progress: bool,
     },
+    /// Stream an existing results.csv and reservoir-sample each m-class,
+    /// writing a compact plot_data.tsv for use with scripts/plot.py.
+    /// Does not require --seed-file or --generator.
+    PlotPrep {
+        /// Path to the results.csv to read
+        #[arg(value_name = "CSV")]
+        results_path: PathBuf,
+        /// Number of reservoir samples per m-class (default: 2000)
+        #[arg(short = 's', long, default_value_t = 2000)]
+        samples: usize,
+        /// Write one plot_data_m{N}.tsv per m-class instead of a single combined file
+        #[arg(long)]
+        split: bool,
+    },
+}
+
+// ---------------------------------------------------------------------------
+// Default-run helper (generic over m-level storage width)
+// ---------------------------------------------------------------------------
+
+fn run_compute<M: MLevel>(
+    numbers: &[u64],
+    from_generator: bool,
+    seed: Option<&PathBuf>,
+    outdir: &PathBuf,
+) {
+    eprintln!("Computing gap-depth m-values...");
+    let m_values: Vec<M> = compute_m(numbers);
+
+    let pichain: Option<Vec<M>> = if from_generator && seed.is_none() {
+        eprintln!("Computing pi-chain depth...");
+        Some(compute_pi_chain(numbers))
+    } else {
+        None
+    };
+
+    println!("\n=== Gap-depth ===");
+    let hist = build_histogram(&m_values);
+    print_histogram(&hist);
+    print_per_level(numbers, &m_values, &hist);
+
+    if let Some(pc) = &pichain {
+        println!("\n=== Pi-chain depth ===");
+        let pc_hist = build_histogram(pc);
+        print_histogram(&pc_hist);
+        print_per_level(numbers, pc, &pc_hist);
+    }
+
+    write_csv(outdir, numbers, &m_values, pichain.as_deref())
+        .expect("failed writing CSV");
 }
 
 // ---------------------------------------------------------------------------
@@ -140,10 +201,19 @@ fn main() {
     let from_generator = cli.generator.is_some();
     let outdir = &cli.outdir;
     let preserve_order = cli.preserve_order;
+    let wide_m = cli.wide_m;
 
-    // GapAddressScan reads its own file and needs no seed/generator
+    // Commands that read their own files and need no seed/generator
     if let Some(Command::GapAddressScan { csv_path, pow, output, no_progress }) = &cli.command {
         cmd_gap_address_scan(csv_path, *pow, output.as_deref(), !no_progress);
+        return;
+    }
+    if let Some(Command::PlotPrep { results_path, samples, split }) = &cli.command {
+        cmd_plot_prep(results_path, *samples, *split, outdir);
+        return;
+    }
+    if let Some(Command::OeisExport { from_csv: Some(csv_path) }) = &cli.command {
+        cmd_oeis_export_from_csv(csv_path, outdir);
         return;
     }
 
@@ -156,30 +226,11 @@ fn main() {
         None => {
             eprintln!("Loading {} numbers...", n);
             let numbers = load_numbers(n, seed, from_generator, preserve_order);
-            eprintln!("Computing gap-depth m-values...");
-            let m_values = compute_m(&numbers);
-
-            let pichain = if from_generator && seed.is_none() {
-                eprintln!("Computing pi-chain depth...");
-                Some(compute_pi_chain(&numbers))
+            if wide_m {
+                run_compute::<u32>(&numbers, from_generator, seed, outdir);
             } else {
-                None
-            };
-
-            println!("\n=== Gap-depth ===");
-            let hist = build_histogram(&m_values);
-            print_histogram(&hist);
-            print_per_level(&numbers, &m_values, &hist);
-
-            if let Some(pc) = &pichain {
-                println!("\n=== Pi-chain depth ===");
-                let pc_hist = build_histogram(pc);
-                print_histogram(&pc_hist);
-                print_per_level(&numbers, pc, &pc_hist);
+                run_compute::<u8>(&numbers, from_generator, seed, outdir);
             }
-
-            write_csv(outdir, &numbers, &m_values, pichain.as_deref())
-                .expect("failed writing CSV");
         }
         Some(Command::Stability) => {
             cmd_stability(seed, from_generator);
@@ -190,9 +241,10 @@ fn main() {
         Some(Command::Growth) => {
             cmd_growth(seed, from_generator, outdir);
         }
-        Some(Command::OeisExport) => {
+        Some(Command::OeisExport { from_csv: None }) => {
             cmd_oeis_export(n, seed, from_generator, outdir);
         }
+        Some(Command::OeisExport { from_csv: Some(_) }) => unreachable!(),
         Some(Command::FirstAt { max_m }) => {
             cmd_first_at(*max_m, n, seed, from_generator);
         }
@@ -227,7 +279,7 @@ fn main() {
             };
             cmd_gap_address(&nums, outdir);
         }
-        Some(Command::GapAddressScan { .. }) => {
+        Some(Command::GapAddressScan { .. }) | Some(Command::PlotPrep { .. }) => {
             // handled above before the seed guard
             unreachable!()
         }

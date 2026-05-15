@@ -1,4 +1,27 @@
-use std::collections::BTreeMap;
+/// Storage type for depth levels.
+///
+/// - `u8`: compact (1 byte/prime), max level 255. Good for prime inputs where
+///   max observed m ≤ 6 at N=10^8. Use with `--compact-m` / `compute_m::<u8>`.
+/// - `u32`: wide (4 bytes/prime), max level ~4 billion. Required for arbitrary
+///   sequences (e.g. digits of π) where m can reach thousands.
+pub trait MLevel: Copy + Default + Into<u32> + Ord + 'static {
+    /// Convert an internal u32 level counter to this type.
+    /// Panics on overflow with a clear message.
+    fn from_level(v: u32) -> Self;
+}
+
+impl MLevel for u8 {
+    fn from_level(v: u32) -> Self {
+        u8::try_from(v).unwrap_or_else(|_| panic!(
+            "m-level {v} exceeded u8::MAX (255). \
+             Use --wide-m or compute_m::<u32>() for non-prime sequences."
+        ))
+    }
+}
+
+impl MLevel for u32 {
+    fn from_level(v: u32) -> Self { v }
+}
 
 /// Compute m(p) for each number in the input array.
 ///
@@ -16,39 +39,91 @@ use std::collections::BTreeMap;
 /// inputs (rows ordered by *position*, not value). For monotone inputs all
 /// gaps are positive and behavior is identical to the original.
 ///
-/// Returns a Vec<u32> of the same length as `numbers`, where each entry is
-/// the m-value (depth level) for that number.
-pub fn compute_m(numbers: &[u64]) -> Vec<u32> {
+/// The type parameter `M` controls storage width. Use `u8` for prime inputs
+/// (compact, max m ≤ 255) or `u32` for general sequences.
+///
+/// # Memory layout
+///
+/// Uses BFS level-by-level with a Compressed Sparse Row (CSR) representation.
+/// Only two level buffers exist at any moment; the previous level is freed
+/// before the next is built. Member indices are stored as `u32` (half the
+/// footprint of `usize` on 64-bit) and are valid for N < 2^32.
+pub fn compute_m<M: MLevel>(numbers: &[u64]) -> Vec<M> {
     let n = numbers.len();
-    let mut m_values = vec![u32::MAX; n];
+    if n == 0 {
+        return vec![];
+    }
+    assert!(
+        n <= u32::MAX as usize,
+        "N={} exceeds u32 index capacity; reduce the input size",
+        n
+    );
 
-    // Work queue: each entry is (level, indices_of_row_members)
-    // We use index-based rows to avoid cloning values
-    let mut queue: Vec<(u32, Vec<usize>)> = vec![(0, (0..n).collect())];
+    let mut m_values: Vec<M> = vec![M::default(); n];
 
-    while let Some((level, row)) = queue.pop() {
-        if row.is_empty() {
-            continue;
+    // CSR layout: cur_members[cur_offsets[r]..cur_offsets[r+1]] holds the
+    // member indices of row r at the current BFS level.
+    let mut cur_members: Vec<u32> = (0..n as u32).collect();
+    let mut cur_offsets: Vec<u32> = vec![0, n as u32];
+    let mut level: u32 = 0;  // internal counter; converted to M when stored
+
+    // Per-row scratch buffer reused across rows to avoid repeated allocation.
+    let mut scratch: Vec<(i64, usize, u32)> = Vec::new();
+
+    loop {
+        let num_rows = cur_offsets.len() - 1;
+        // Reserve capacity: next level has at most (active - rows) members
+        // because each row loses exactly its leader.
+        let next_cap = cur_members.len().saturating_sub(num_rows);
+        let mut next_members: Vec<u32> = Vec::with_capacity(next_cap);
+        let mut next_offsets: Vec<u32> = vec![0u32];
+
+        for row_idx in 0..num_rows {
+            let start = cur_offsets[row_idx] as usize;
+            let end   = cur_offsets[row_idx + 1] as usize;
+            let row   = &cur_members[start..end];
+
+            // First member is the leader; assign current level.
+            m_values[row[0] as usize] = M::from_level(level);
+
+            if row.len() == 1 {
+                continue;
+            }
+
+            // Build (gap, parent-position, member-idx) triples.
+            // The parent-position tiebreaker preserves original row order
+            // within each gap bucket, matching the former BTreeMap behaviour.
+            scratch.clear();
+            for i in 1..row.len() {
+                let gap = numbers[row[i] as usize] as i64
+                    - numbers[row[i - 1] as usize] as i64;
+                scratch.push((gap, i, row[i]));
+            }
+            scratch.sort_unstable_by_key(|&(g, pos, _)| (g, pos));
+
+            // Append child rows to the next-level CSR buffers.
+            let mut i = 0;
+            while i < scratch.len() {
+                let gap = scratch[i].0;
+                while i < scratch.len() && scratch[i].0 == gap {
+                    next_members.push(scratch[i].2);
+                    i += 1;
+                }
+                next_offsets.push(next_members.len() as u32);
+            }
         }
-        // First element of row gets this level
-        let first_idx = row[0];
-        m_values[first_idx] = level;
 
-        if row.len() == 1 {
-            continue;
+        // Free the current level entirely before advancing.
+        drop(cur_members);
+        drop(cur_offsets);
+
+        if next_members.is_empty() {
+            break;
         }
 
-        // Compute gaps and group remaining by gap value
-        // Use a BTreeMap so buckets are processed in consistent order
-        let mut buckets: BTreeMap<i64, Vec<usize>> = BTreeMap::new();
-        for i in 1..row.len() {
-            let gap = numbers[row[i]] as i64 - numbers[row[i - 1]] as i64;
-            buckets.entry(gap).or_default().push(row[i]);
-        }
-
-        for (_, bucket) in buckets {
-            queue.push((level + 1, bucket));
-        }
+        cur_members = next_members;
+        cur_offsets = next_offsets;
+        level += 1;
     }
 
     m_values
@@ -94,7 +169,7 @@ impl PiChainContext {
     }
 
     /// Compute pi-chain depth for the prime at 0-based index `idx` in the sorted primes.
-    fn depth_for_index(&self, idx: usize) -> u32 {
+    fn depth_for_index<M: MLevel>(&self, idx: usize) -> M {
         // First hop: pi(p) = idx + 1 (1-based index in the primes array).
         let mut current = (idx as u64) + 1;
         let mut steps = 1u32;
@@ -102,7 +177,7 @@ impl PiChainContext {
         loop {
             // Is `current` prime?
             if current > self.max_v || !self.is_prime[current as usize] {
-                return steps;
+                return M::from_level(steps);
             }
             // Recurse: pi(current) = pi_table[current]
             current = self.pi_table[current as usize];
@@ -111,21 +186,22 @@ impl PiChainContext {
     }
 }
 
-pub fn compute_pi_chain(primes: &[u64]) -> Vec<u32> {
+pub fn compute_pi_chain<M: MLevel>(primes: &[u64]) -> Vec<M> {
     let ctx = PiChainContext::new(primes);
-    (0..primes.len()).map(|i| ctx.depth_for_index(i)).collect()
+    (0..primes.len()).map(|i| ctx.depth_for_index::<M>(i)).collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeMap;
     use crate::sieve::sieve_first_n;
 
     #[test]
     fn test_n100_histogram() {
         let primes = sieve_first_n(100);
-        let m_values = compute_m(&primes);
-        let mut hist: BTreeMap<u32, usize> = BTreeMap::new();
+        let m_values = compute_m::<u8>(&primes);
+        let mut hist: BTreeMap<u8, usize> = BTreeMap::new();
         for &m in &m_values {
             *hist.entry(m).or_insert(0) += 1;
         }
@@ -142,7 +218,7 @@ mod tests {
     #[test]
     fn test_n100_m0() {
         let primes = sieve_first_n(100);
-        let m_values = compute_m(&primes);
+        let m_values = compute_m::<u8>(&primes);
         let m0: Vec<u64> = primes.iter().zip(m_values.iter())
             .filter(|(_, &m)| m == 0).map(|(&p, _)| p).collect();
         assert_eq!(m0, vec![2]);
@@ -151,7 +227,7 @@ mod tests {
     #[test]
     fn test_n100_m1() {
         let primes = sieve_first_n(100);
-        let m_values = compute_m(&primes);
+        let m_values = compute_m::<u8>(&primes);
         let mut m1: Vec<u64> = primes.iter().zip(m_values.iter())
             .filter(|(_, &m)| m == 1).map(|(&p, _)| p).collect();
         m1.sort_unstable();
@@ -161,7 +237,7 @@ mod tests {
     #[test]
     fn test_n100_m4() {
         let primes = sieve_first_n(100);
-        let m_values = compute_m(&primes);
+        let m_values = compute_m::<u8>(&primes);
         let mut m4: Vec<u64> = primes.iter().zip(m_values.iter())
             .filter(|(_, &m)| m == 4).map(|(&p, _)| p).collect();
         m4.sort_unstable();
@@ -171,8 +247,8 @@ mod tests {
     #[test]
     fn test_pi_chain_small() {
         let primes = sieve_first_n(10);
-        let depths = compute_pi_chain(&primes);
-        assert_eq!(depths, vec![1, 2, 3, 1, 4, 1, 2, 1, 1, 1]);
+        let depths: Vec<u8> = compute_pi_chain(&primes);
+        assert_eq!(depths, vec![1u8, 2, 3, 1, 4, 1, 2, 1, 1, 1]);
     }
 }
 

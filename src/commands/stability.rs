@@ -18,7 +18,7 @@ pub fn cmd_stability(seed: Option<&PathBuf>, from_generator: bool) {
             println!("cutoff {:<5}: only {} numbers available; stopping", cutoff, numbers.len());
             break;
         }
-        let m_full = compute_m(&numbers);
+        let m_full = compute_m::<u32>(&numbers);
         let m1000: Vec<u32> = m_full.into_iter().take(1000).collect();
         let unstable = match &baseline {
             None => 0,

@@ -11,11 +11,12 @@ pub mod iterations;
 pub mod gap_address;
 pub mod gap_address_scan;
 pub mod locality;
+pub mod plot_prep;
 
 pub use stability::cmd_stability;
 pub use mod_residue::cmd_mod_residue;
 pub use growth::cmd_growth;
-pub use oeis_export::cmd_oeis_export;
+pub use oeis_export::{cmd_oeis_export, cmd_oeis_export_from_csv};
 pub use first_at::cmd_first_at;
 pub use class_quantiles::cmd_class_quantiles;
 pub use overlay::cmd_overlay;
@@ -25,3 +26,4 @@ pub use iterations::cmd_iterations;
 pub use gap_address::cmd_gap_address;
 pub use gap_address_scan::cmd_gap_address_scan;
 pub use locality::cmd_locality;
+pub use plot_prep::cmd_plot_prep;

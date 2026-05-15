@@ -8,7 +8,7 @@ pub fn cmd_predict(n: usize, seed: Option<&PathBuf>, from_generator: bool, m_min
     eprintln!("Loading {} numbers...", n);
     let numbers = load_numbers(n, seed, from_generator, false);
     eprintln!("Computing m-values...");
-    let m_values = compute_m(&numbers);
+    let m_values = compute_m::<u32>(&numbers);
 
     let observed_max_m = *m_values.iter().max().unwrap_or(&0);
 

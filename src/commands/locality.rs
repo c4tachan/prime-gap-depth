@@ -17,7 +17,7 @@ pub fn cmd_locality(n: usize, seed: Option<&PathBuf>, from_generator: bool, outd
     eprintln!("Loading {} numbers...", n);
     let numbers = load_numbers(n, seed, from_generator, false);
     eprintln!("Computing global m-values...");
-    let global_m = compute_m(&numbers);
+    let global_m = compute_m::<u32>(&numbers);
 
     let out_path = outdir.join("locality.csv");
     fs::create_dir_all(outdir).expect("cannot create output directory");
@@ -33,7 +33,7 @@ pub fn cmd_locality(n: usize, seed: Option<&PathBuf>, from_generator: bool, outd
     loop {
         let lo = i.saturating_sub(w - 1);
         let window = &numbers[lo..=i];
-        let local_m = compute_m(window);
+        let local_m = compute_m::<u32>(window);
 
         if local_m[window.len() - 1] == global_m[i] {
             if window_at[i] == 0 {

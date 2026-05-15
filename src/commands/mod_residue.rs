@@ -15,7 +15,7 @@ pub fn cmd_mod_residue(
     modulus: u64,
 ) {
     let numbers = load_numbers(n, seed, from_generator, false);
-    let m_values = compute_m(&numbers);
+    let m_values = compute_m::<u32>(&numbers);
 
     // Baseline: all numbers mod modulus
     let mut baseline_counts: HashMap<u64, usize> = HashMap::new();

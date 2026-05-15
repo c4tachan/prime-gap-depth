@@ -15,7 +15,7 @@ pub fn cmd_first_at(max_m: u32, n: usize, seed: Option<&PathBuf>, from_generator
         let current_n = if fixed_input { n } else { batch_n };
         eprint!("  loading {} numbers... ", current_n);
         let numbers = load_numbers(current_n, seed, from_generator, false);
-        let m_values = compute_m(&numbers);
+        let m_values = compute_m::<u32>(&numbers);
 
         for level in 0..=max_m {
             if results[level as usize].is_some() {

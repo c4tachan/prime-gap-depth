@@ -10,7 +10,7 @@ pub fn cmd_pi_chain(n: usize, seed: Option<&PathBuf>, from_generator: bool, outd
     eprintln!("Loading {} numbers...", n);
     let numbers = load_numbers(n, seed, from_generator, false);
     eprintln!("Computing pi-chain depths...");
-    let depths = compute_pi_chain(&numbers);
+    let depths = compute_pi_chain::<u32>(&numbers);
 
     let hist = build_histogram(&depths);
     let max_d = *depths.iter().max().unwrap_or(&0);

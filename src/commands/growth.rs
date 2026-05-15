@@ -14,7 +14,7 @@ pub fn cmd_growth(seed: Option<&PathBuf>, from_generator: bool, outdir: &PathBuf
     let mut all_hists: Vec<(usize, BTreeMap<u32, usize>)> = Vec::new();
     for &n in &ns {
         let numbers = load_numbers(n, seed, from_generator, false);
-        let m_values = compute_m(&numbers);
+        let m_values = compute_m::<u32>(&numbers);
         let hist = build_histogram(&m_values);
         let max_m = hist.keys().max().copied().unwrap_or(0);
         eprint!("N={:>10}  max_m={}  ", n, max_m);

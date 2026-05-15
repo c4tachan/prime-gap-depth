@@ -3,10 +3,10 @@ use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};
 use std::path::PathBuf;
 
-pub fn build_histogram(m_values: &[u32]) -> BTreeMap<u32, usize> {
+pub fn build_histogram<M: Copy + Into<u32>>(m_values: &[M]) -> BTreeMap<u32, usize> {
     let mut hist = BTreeMap::new();
     for &m in m_values {
-        *hist.entry(m).or_insert(0) += 1;
+        *hist.entry(m.into()).or_insert(0) += 1;
     }
     hist
 }
@@ -22,7 +22,7 @@ pub fn print_histogram(hist: &BTreeMap<u32, usize>) {
     println!("\nmax m = {}", max_m);
 }
 
-pub fn print_per_level(numbers: &[u64], m_values: &[u32], hist: &BTreeMap<u32, usize>) {
+pub fn print_per_level<M: Copy + Into<u32>>(numbers: &[u64], m_values: &[M], hist: &BTreeMap<u32, usize>) {
     println!("\nPer m-level (first 10 values):");
     println!("{:<6} {:>10}  first 10", "m", "count");
     println!("{}", "-".repeat(60));
@@ -33,7 +33,7 @@ pub fn print_per_level(numbers: &[u64], m_values: &[u32], hist: &BTreeMap<u32, u
         let mut first10: Vec<u64> = numbers
             .iter()
             .zip(m_values.iter())
-            .filter(|(_, &m)| m == level)
+            .filter(|(_, &m)| m.into() == level)
             .map(|(&p, _)| p)
             .take(10)
             .collect();
@@ -43,11 +43,11 @@ pub fn print_per_level(numbers: &[u64], m_values: &[u32], hist: &BTreeMap<u32, u
     }
 }
 
-pub fn write_csv(
+pub fn write_csv<M: Copy + Into<u32>>(
     outdir: &PathBuf,
     numbers: &[u64],
-    m_values: &[u32],
-    m_pichain: Option<&[u32]>,
+    m_values: &[M],
+    m_pichain: Option<&[M]>,
 ) -> io::Result<()> {
     fs::create_dir_all(outdir)?;
     let path = outdir.join("results.csv");
@@ -58,9 +58,10 @@ pub fn write_csv(
         None => writeln!(w, "index,value,m_gap")?,
     }
     for (i, (&p, &m)) in numbers.iter().zip(m_values.iter()).enumerate() {
+        let mv: u32 = m.into();
         match m_pichain {
-            Some(pc) => writeln!(w, "{},{},{},{}", i + 1, p, m, pc[i])?,
-            None => writeln!(w, "{},{},{}", i + 1, p, m)?,
+            Some(pc) => writeln!(w, "{},{},{},{}", i + 1, p, mv, Into::<u32>::into(pc[i]))?,
+            None => writeln!(w, "{},{},{}", i + 1, p, mv)?,
         }
     }
     eprintln!("Wrote {}", path.display());

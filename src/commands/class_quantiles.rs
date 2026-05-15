@@ -10,7 +10,7 @@ pub fn cmd_class_quantiles(n: usize, seed: Option<&PathBuf>, from_generator: boo
     eprintln!("Loading {} numbers...", n);
     let numbers = load_numbers(n, seed, from_generator, false);
     eprintln!("Computing m-values...");
-    let m_values = compute_m(&numbers);
+    let m_values = compute_m::<u32>(&numbers);
 
     let max_m = *m_values.iter().max().unwrap_or(&0);
     let mut classes: Vec<Vec<(usize, u64)>> = vec![Vec::new(); max_m as usize + 1];
